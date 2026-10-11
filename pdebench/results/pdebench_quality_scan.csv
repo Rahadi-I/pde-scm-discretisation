@@ -1,0 +1,11 @@
+checked,file,freeze_index_max,freeze_index_median,freeze_index_min,freeze_index_spread,frozen,kind,mean_at_freeze_median,mean_at_freeze_spread,n_snapshots,non_finite,with_repeated_frames
+100,1D_Advection_Sols_beta0.4.hdf5,,,,,0,transient,,,201,0,0
+100,1D_Burgers_Sols_Nu0.001.hdf5,,,,,0,transient,,,201,0,0
+100,1D_diff-sorp_NA_NA.h5,,,,,0,transient,,,101,0,0
+100,ReacDiff_Nu0.5_Rho1.0.hdf5,59,11,3,9.422669664225102,95,transient,0.5168967843055725,0.06364423285676564,101,0,96
+100,ReacDiff_Nu1.0_Rho1.0.hdf5,99,93,20,16.68031967214047,73,transient,0.7188182473182678,0.002448851988133495,101,0,74
+100,ReacDiff_Nu1.0_Rho5.0.hdf5,92,67,50,5.710481590899318,100,transient,0.9622946977615356,0.0,101,0,100
+100,ReacDiff_Nu5.0_Rho10.0.hdf5,50,37,28,2.9963144027287925,100,transient,0.9694963097572327,0.0,101,0,100
+100,2D_diff-react_NA_NA.h5,,,,,0,transient,,,101,0,0
+100,2D_rdb_NA_NA.h5,,,,,0,transient,,,101,0,0
+0,2D_DarcyFlow_beta1.0_Train.hdf5,,,,,,steady,,,,,
