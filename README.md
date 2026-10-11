@@ -5,11 +5,10 @@ Code and data for the paper
 > **Predictively Equivalent, Causally Different: Discretisation and Learned Stencils in
 > Causal Models of PDE Systems**
 
-A discretised partial differential equation is a structural causal model whose parents are
-fixed by the numerical stencil. The paper asks when the effect of an intervention computed on
-such a model converges to the effect on the continuous system as the grid is refined, for
-stencils derived from an equation and for stencils learned from data. This repository
-reproduces every number and figure in the paper.
+The paper reads a grid-based PDE model as a causal model, with each cell depending on its
+stencil neighbours, and studies whether intervention effects computed on the grid approach the
+true effect under mesh refinement. It covers stencils obtained from a numerical scheme and
+stencils fitted to data. The scripts here regenerate all numbers and figures reported.
 
 ## Contents
 
@@ -58,10 +57,10 @@ python verify_theory.py         # independent checks of the formulas
 Each script overwrites the CSV of the same name. The CSVs in this repository are the ones
 reported in the paper; rerunning reproduces them to a relative difference below 1e-11.
 
-In E5 the latent forcing takes the values of an Ornstein–Uhlenbeck process at the sampling
-times and is held constant over each interval, so every sampled Fourier mode follows the
-scalar model of Lemma 1 exactly; with continuously varying forcing the leading-order bias
-is the same but the correction is O(Δt²) rather than O(Δt³).
+E5 uses a piecewise-constant forcing: an OU process is sampled once per observation step and
+kept fixed until the next one. Each Fourier mode then satisfies the scalar recursion of
+Lemma 1 without approximation. A forcing that varies inside each step gives the same leading
+bias, with an O(Δt²) instead of O(Δt³) correction.
 
 ## PDEBench verification and data-quality scan
 
@@ -103,13 +102,12 @@ python compare_reacdiff_files.py --root <data folder>
 
 ### Note on the 1D reaction–diffusion files
 
-In all sixteen released 1D reaction–diffusion training files, most trajectories stop evolving
-before t = 1. In 99.6% of frozen samples the frozen field is spatially uniform, at a value
-common to all samples of a file. This is consistent with single-precision stagnation of the
-time integrator, as reported in PDEBench issue #94
-(https://github.com/pdebench/PDEBench/issues/94). The verification in the paper is therefore
-restricted to the evolving part of each trajectory. If you use these files for training or
-evaluation, check them with `scan_pdebench_quality.py` first.
+Most trajectories in the sixteen 1D reaction–diffusion training files stop changing before
+t = 1, almost always after the field has become uniform, and every sample of a file stops at
+the same value. Float32 round-off in the time stepping explains this; see PDEBench issue #94
+(https://github.com/pdebench/PDEBench/issues/94). For this reason the paper compares solvers
+only on the part of each trajectory that is still changing. Run `scan_pdebench_quality.py`
+before training or evaluating on these files.
 
 ## Citation
 
