@@ -24,7 +24,7 @@ SEED_WIDTH = 0.20            # the intervened interval [0, SEED_WIDTH]
 def run(N, dt=0.05):
     h = 1.0 / N
     x = (np.arange(N) + 0.5) * h
-    lap = sp.diags([1, -2, 1], [-1, 0, 1], shape=(N, N), format="lil")
+    lap = sp.diags([1, -2, 1], [-1, 0, 1], shape=(N, N), format="lil", dtype=float)
     lap[0, 0] = -1.0; lap[-1, -1] = -1.0                 # no-flux boundaries
     L = (D / h ** 2) * lap.tocsr()
     M = sp.identity(N, format="csr") - dt * L
@@ -36,6 +36,20 @@ def run(N, dt=0.05):
         u = solve(u + dt * u * (1 - u) * (u - A_PAR))
     front = float(np.sum(u > 0.5) * h)                   # length of the invaded region
     return float(u.mean()), front, seeded, h
+
+def front_speed(N=2048, t1=100.0, t2=300.0, dt=0.05):
+    """Speed of the front on a fine grid, to compare with sqrt(2D)(1/2 - a)."""
+    h = 1.0 / N
+    x = (np.arange(N) + 0.5) * h
+    lap = sp.diags([1, -2, 1], [-1, 0, 1], shape=(N, N), format="lil", dtype=float)
+    lap[0, 0] = -1.0; lap[-1, -1] = -1.0
+    solve = spla.factorized((sp.identity(N, format="csc") - dt * (D / h ** 2) * lap.tocsc()))
+    u = np.where(x <= SEED_WIDTH, 1.0, 0.0); pos = {}
+    for n in range(1, int(round(t2 / dt)) + 1):
+        u = solve(u + dt * u * (1 - u) * (u - A_PAR))
+        if abs(n * dt - t1) < 1e-9 or abs(n * dt - t2) < 1e-9:
+            pos[round(n * dt)] = float(np.sum(u > 0.5) * h)
+    return (pos[round(t2)] - pos[round(t1)]) / (t2 - t1)
 
 if __name__ == "__main__":
     rows = []
@@ -58,7 +72,12 @@ if __name__ == "__main__":
         print(f"\nfront pinned for N <= {Np} (coupling <= {cp:.4f}); "
               f"propagating for N >= {Nm} (coupling >= {cm:.4f})")
         print(f"critical mesh width between h = {1/Nm:.4f} and h = {1/Np:.4f}")
-        print("Below the threshold the intervention has no lasting effect in the discrete")
-        print("model, while in the continuum the same intervention starts a travelling front:")
+        print("On the coarse grids the effect stays confined to the intervened interval in the")
+        print("discrete model, while in the continuum the same intervention starts a travelling front:")
         print("the sign of the conclusion, not only its size, depends on the resolution.")
+    c_meas, c_pred = front_speed(), np.sqrt(2 * D) * (0.5 - A_PAR)
+    print(f"\ncontinuum front speed sqrt(2D)(1/2-a) = {c_pred:.4e}; measured on N=2048: {c_meas:.4e}"
+          f" ({abs(c_meas-c_pred)/c_pred*100:.1f}%)")
+    print(f"in the continuum the front crosses the remaining {1-SEED_WIDTH:.1f} of the domain by t = "
+          f"{(1-SEED_WIDTH)/c_pred:.0f} < T = {T:.0f}")
     print("written: e4_bistable.csv")

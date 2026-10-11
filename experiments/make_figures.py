@@ -39,7 +39,7 @@ fig.tight_layout(); fig.savefig(OUT + "fig_scalar_theory.pdf"); plt.close(fig)
 # ---------------------------------------------------------------- Fig: E1 + E2 convergence
 e1 = read("e1_convergence.csv"); e2 = read("e2_singular.csv")
 fig, ax = plt.subplots(1, 2, figsize=(7.2, 2.8))
-for scheme, col, lab in (("ftcs", C["b"], "FTCS, upwind"), ("cn", C["g"], "Crank–Nicolson, upwind"), ("cn_centred", C["o"], "Crank–Nicolson, centred")):
+for scheme, col, lab in (("ftcs", C["b"], "FTCS, upwind"), ("upwind", C["g"], "upwind, exact in time"), ("centred", C["o"], "centred, exact in time")):
     rows = [r for r in e1 if r["scheme"] == scheme]
     h = np.array([float(r["h"]) for r in rows]); err = np.array([float(r["abs_error"]) for r in rows])
     ax[0].loglog(h, err, "o-", color=col, label=lab, ms=4)
@@ -48,24 +48,14 @@ ax[0].loglog(hh, 0.25 * hh, ":", color=C["gr"]); ax[0].text(2e-3, 1.1e-3, "slope
 ax[0].loglog(hh, 3 * hh ** 2, ":", color=C["gr"]); ax[0].text(2e-3, 2.5e-5, "slope 2", fontsize=7, color=C["gr"])
 ax[0].set_xlabel("$h$"); ax[0].set_ylabel(r"$|\tau_h-\tau|$"); ax[0].set_title("E1: smooth forcing, derived stencils")
 ax[0].legend(frameon=False, loc="lower right")
-# E2: regional functional, edge vs centre (recomputed inline for the paper figure)
+# E2: regional functional, source on a cell edge vs at a cell centre (from e2_singular.csv)
 import importlib.util, sys
 spec = importlib.util.spec_from_file_location("e2", "e2_singular.py"); e2m = importlib.util.module_from_spec(spec); spec.loader.exec_module(e2m)
-def disc(N, x0):
-    h = 1.0 / N; x = (np.arange(N) + 0.5) * h
-    dt = 0.2 * h * h / e2m.D; nt = max(1, int(round(e2m.T / dt))); dt = e2m.T / nt
-    k = 2 * np.pi * np.fft.fftfreq(N, d=h); g = 1 + dt * e2m.D * (2 * np.cos(k * h) - 2) / h ** 2
-    i0 = int(np.argmin(np.abs(x - x0))); s = np.zeros(N); s[i0] = 1.0 / h
-    fh = np.fft.fft(s); den = 1 - g
-    uh = np.where(np.abs(den) > 1e-14, dt * fh * (1 - g ** nt) / np.where(den == 0, 1, den), dt * nt * fh)
-    u = np.real(np.fft.ifft(uh)); w = np.exp(-((x - e2m.W_X0) ** 2) / (2 * e2m.W_S ** 2)); w /= w.sum()
-    return float(w @ u)
-def cont(x0, n=400000):
-    k = 2 * np.pi * np.arange(1, n); amp = (1 - np.exp(-e2m.D * k ** 2 * e2m.T)) / (e2m.D * k ** 2)
-    return e2m.T + 2 * np.sum(amp * np.exp(-0.5 * (k * e2m.W_S) ** 2) * np.cos(k * (e2m.W_X0 - x0)))
-Ns = np.array([64, 128, 256, 512, 1024]); hs = 1.0 / Ns
-err_edge = np.array([abs(disc(N, 0.5) - cont(0.5)) for N in Ns])
-err_ctr = np.array([abs(disc(N, 0.5 + 0.5 / N) - cont(0.5 + 0.5 / N)) for N in Ns])
+r_edge = [r for r in e2 if r["dim"] == "1" and r["psi"] == "regional"]
+r_ctr = [r for r in e2 if r["dim"] == "1" and r["psi"] == "regional (source at cell centre)"]
+hs = 1.0 / np.array([int(r["N"]) for r in r_edge])
+err_edge = np.array([float(r["error"]) for r in r_edge])
+err_ctr = np.array([float(r["error"]) for r in r_ctr])
 ax[1].loglog(hs, err_edge, "s-", color=C["o"], ms=4, label="point source on a cell edge")
 ax[1].loglog(hs, err_ctr, "o-", color=C["b"], ms=4, label="point source at a cell centre")
 ax[1].loglog(hh, 0.4 * hh, ":", color=C["gr"]); ax[1].loglog(hh, 4 * hh ** 2, ":", color=C["gr"])
@@ -89,13 +79,14 @@ ax[0].legend(frameon=False)
 for case, col, mk in (("1D point", C["b"], "s"), ("2D line", C["g"], "^"), ("2D point", C["o"], "o")):
     rows = [r for r in e3 if r["case"] == case]
     N = np.array([int(r["N"]) for r in rows]); eff = np.array([abs(float(r["effect"])) for r in rows])
-    ax[1].plot(np.log(N), eff, mk, color=col, label=case, ms=5)
+    ax[1].plot(np.log(N + 1), eff, mk, color=col, label=case, ms=5)      # h = 1/(N+1)
     if case == "2D point":
-        A, Cc = 0.0567, 1.045
-        xx = np.linspace(np.log(N[0]) - 0.3, np.log(N[-1]) + 1.5, 50)
+        fit = read("e3_capacity_fit.csv")[0]
+        A, Cc = float(fit["A_predicted"]), float(fit["C_fit"])           # A predicted, C fitted
+        xx = np.linspace(np.log(N[0] + 1) - 0.3, np.log(N[-1] + 1) + 1.5, 50)
         ax[1].plot(xx, A / (xx + Cc), "-", color=C["o"], lw=1, label=r"$A/(\log(1/h)+C)$, $A$ predicted")
 ax[1].set_yscale("log"); ax[1].set_xlabel(r"$\log(1/h)$"); ax[1].set_ylabel(r"$|\tau_h|$"); ax[1].set_title("E3: state clamping and capacity")
-ax[1].legend(frameon=False, fontsize=7)
+ax[1].legend(frameon=False, fontsize=7, loc="center right", bbox_to_anchor=(1.0, 0.42))
 fig.tight_layout(); fig.savefig(OUT + "fig_e2_pointwise_e3_capacity.pdf"); plt.close(fig)
 
 # ---------------------------------------------------------------- Fig: E4 bistable
@@ -103,7 +94,7 @@ e4 = read("e4_bistable.csv")
 import scipy.sparse as sp, scipy.sparse.linalg as spla
 def snapshot(N, D=2e-5, a=0.25, T=600.0, dt=0.05, seed=0.2):
     h = 1.0 / N; x = (np.arange(N) + 0.5) * h
-    lap = sp.diags([1, -2, 1], [-1, 0, 1], shape=(N, N), format="lil"); lap[0, 0] = -1; lap[-1, -1] = -1
+    lap = sp.diags([1, -2, 1], [-1, 0, 1], shape=(N, N), format="lil", dtype=float); lap[0, 0] = -1; lap[-1, -1] = -1
     M = sp.identity(N, format="csr") - dt * (D / h ** 2) * lap.tocsr(); solve = spla.factorized(M.tocsc())
     u = np.where(x <= seed, 1.0, 0.0); snaps = {0: u.copy()}
     for n in range(1, int(T / dt) + 1):
@@ -133,11 +124,12 @@ dts = np.array([float(r["dt"]) for r in e5])
 fig, ax = plt.subplots(1, 3, figsize=(7.4, 2.5))
 ax[0].plot(dts, [float(r["D_obs"]) for r in e5], "o", color=C["o"], label="learned (observational)")
 ax[0].plot(dts, [float(r["D_predicted_bias"]) for r in e5], "-", color=C["k"], lw=1, label=r"theory $D\Delta t/2\tau_f$")
+ax[0].plot(dts, [float(r["D_constrained"]) for r in e5], "x", color=C["p"], label="learned, constrained stencil")
 ax[0].plot(dts, [float(r["D_event"]) for r in e5], "s", color=C["g"], label="fitted to interventions")
 ax[0].plot(dts, [float(r["D_oracle"]) for r in e5], "^", color=C["b"], label="forcing observed")
-ax[0].axhline(0.02, color=C["gr"], ls="--", lw=0.8); ax[0].text(0.052, 0.0205, "true $D$", fontsize=7, color=C["gr"])
-ax[0].set_yscale("log"); ax[0].set_xlabel(r"$\Delta t$"); ax[0].set_ylabel(r"$\hat D$"); ax[0].set_title("E5: implied diffusivity")
-ax[0].legend(frameon=False, fontsize=6.5, loc="lower right")
+ax[0].axhline(0.02, color=C["gr"], ls="--", lw=0.8); ax[0].text(0.11, 0.027, "true $D$", fontsize=7, color=C["gr"])
+ax[0].set_yscale("log"); ax[0].set_ylim(1.2e-4, 0.08); ax[0].set_xlabel(r"$\Delta t$"); ax[0].set_ylabel(r"$\hat D$"); ax[0].set_title("E5: implied diffusivity")
+ax[0].legend(frameon=False, fontsize=6, loc="center left", bbox_to_anchor=(0.0, 0.52))
 w = 0.3; xs = np.arange(len(dts))
 ax[1].bar(xs - w / 2, [float(r["rmse_obs"]) for r in e5], w, color=C["o"], label="learned stencil")
 ax[1].bar(xs + w / 2, [float(r["rmse_true"]) for r in e5], w, color=C["b"], label="true model")
@@ -146,7 +138,7 @@ ax[1].set_ylabel("one-step RMSE"); ax[1].set_title("Predictive error"); ax[1].le
 ax[2].bar(xs - w / 2, [100 * float(r["rel_effect_error_obs"]) for r in e5], w, color=C["o"], label="learned stencil")
 ax[2].bar(xs + w / 2, [100 * float(r["rel_effect_error_event"]) for r in e5], w, color=C["g"], label="fitted to interventions")
 ax[2].set_xticks(xs); ax[2].set_xticklabels([f"{d:g}" for d in dts]); ax[2].set_xlabel(r"$\Delta t$")
-ax[2].set_ylabel("error in the effect (%)"); ax[2].set_title("Interventional error"); ax[2].legend(frameon=False, fontsize=7)
+ax[2].set_ylim(0, 140); ax[2].set_ylabel("error in the effect (%)"); ax[2].set_title("Interventional error"); ax[2].legend(frameon=False, fontsize=7, loc="upper center", ncol=1)
 fig.tight_layout(); fig.savefig(OUT + "fig_e5_learned.pdf"); plt.close(fig)
 
 # ---------------------------------------------------------------- Fig: impulse responses true vs learned
@@ -155,7 +147,9 @@ fig, ax = plt.subplots(1, 1, figsize=(3.6, 2.5))
 dt = 0.1; horizon = 2.0
 src = np.fft.fft(np.exp(-((e5m.X - 0.3) ** 2) / (2 * 0.05 ** 2)))
 wv = np.exp(-((e5m.X - 0.7) ** 2) / (2 * 0.05 ** 2)); wv /= wv.sum()
-for D, col, lab in ((0.02, C["k"], "true $D$"), (0.0202, C["g"], "fitted to interventions"), (5.04e-4, C["o"], "learned stencil")):
+r01 = [r for r in e5 if abs(float(r["dt"]) - dt) < 1e-12][0]
+for D, col, lab in ((float(r01["D_true"]), C["k"], "true $D$"), (float(r01["D_event"]), C["g"], "fitted to interventions"),
+                    (float(r01["D_obs"]), C["o"], "learned stencil")):
     a, b = e5m._step_factors(dt, D * e5m.K ** 2); u = np.zeros(e5m.N, complex); ts, ys = [], []
     for n in range(int(horizon / dt)):
         u = a * u + b * src; ts.append((n + 1) * dt); ys.append(float(wv @ np.real(np.fft.ifft(u))))

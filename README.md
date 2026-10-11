@@ -21,12 +21,13 @@ figures/       the figures as they appear in the paper
 
 | Script | Section | What it shows | Output |
 |---|---|---|---|
-| `experiments/e1_convergence.py` | 3, 5 | Smooth forcing, derived stencils: the effect converges at the scheme's order (1.00 upwind, 2.00 centred) | `e1_convergence.csv` |
-| `experiments/e2_singular.py` | 3, 5 | Point source: order 1 on a cell edge, 2 at a cell centre; the 2D pointwise functional grows as log(1/h)/(2πD) | `e2_singular.csv` |
-| `experiments/e3_clamping.py` | 3, 5 | State interventions: a 2D point clamp decays as A/(log(1/h)+C), with A predicted from capacity | `e3_clamping.csv` |
-| `experiments/e4_bistable.py` | 3, 5 | Bistable front: propagation failure on coarse grids reverses the qualitative conclusion | `e4_bistable.csv` |
-| `experiments/e5_learned_stencil.py` | 4, 5 | Latent correlated forcing: the learned stencil predicts better and estimates the intervention effect wrongly by ~100%; fitting to recorded interventions recovers it | `e5_learned_stencil.csv` |
-| `experiments/make_figures.py` | — | All figures except the PDEBench verification figure | `figures/*.pdf` |
+| `experiments/e1_convergence.py` | 3, 5 | Smooth forcing, derived stencils: the effect converges at the scheme's order (1.01 upwind, 2.00 centred, semi-discrete and exact in time; 0.99 for the explicit scheme) | `e1_convergence.csv` |
+| `experiments/e2_singular.py` | 3, 5 | Point source: order 1 on a cell edge, with the first-order term of Proposition 1 predicted to 1.2%; order 2 at a cell centre; the 2D pointwise functional grows as log(1/h)/(2πD) | `e2_singular.csv` |
+| `experiments/e3_clamping.py` | 3, 5 | State interventions: a 2D point clamp decays as A/(log(1/h)+C), with A predicted from capacity (to 0.03%) | `e3_clamping.csv`, `e3_capacity_fit.csv` |
+| `experiments/e4_bistable.py` | 3, 5 | Bistable front: on coarse grids the front is pinned and the effect stays confined to the intervened interval; also checks the continuum front speed | `e4_bistable.csv` |
+| `experiments/e5_learned_stencil.py` | 4, 5 | Latent correlated forcing: learned stencils, free or constrained to a consistent diffusion stencil, predict better and estimate the intervention effect wrongly by ~100%; fitting to recorded interventions recovers it | `e5_learned_stencil.csv` |
+| `experiments/make_figures.py` | — | All figures except the PDEBench verification figure and the framework diagram | `figures/*.pdf` |
+| `experiments/verify_theory.py` | 3, 4 | Independent checks of Lemma 1, Corollary 1 and Propositions 1–3 against the outputs above | printed |
 
 The experiments generate their own data and need no downloads.
 
@@ -51,10 +52,16 @@ python e3_clamping.py           # ~ 20 s
 python e4_bistable.py           # ~ 1 s
 python e5_learned_stencil.py    # ~ 10 s
 python make_figures.py          # writes ../figures/*.pdf
+python verify_theory.py         # independent checks of the formulas
 ```
 
 Each script overwrites the CSV of the same name. The CSVs in this repository are the ones
 reported in the paper; rerunning reproduces them to a relative difference below 1e-11.
+
+In E5 the latent forcing takes the values of an Ornstein–Uhlenbeck process at the sampling
+times and is held constant over each interval, so every sampled Fourier mode follows the
+scalar model of Lemma 1 exactly; with continuously varying forcing the leading-order bias
+is the same but the correction is O(Δt²) rather than O(Δt³).
 
 ## PDEBench verification and data-quality scan
 
